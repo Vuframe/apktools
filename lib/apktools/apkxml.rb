@@ -114,7 +114,7 @@ class ApkXml
 	# This opens and parses the contents of the APK's resources.arsc file.
 	def initialize(apk_file)
 		@current_apk = apk_file
-		@apk_resources = ApkResources.new(apk_file)
+		# @apk_resources = ApkResources.new(apk_file)
 	end #initialize
 	
 	##
