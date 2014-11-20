@@ -231,20 +231,20 @@ class ApkXml
 						attr_value = attr_raw
 					elsif entry.data_type == 1 # Value is a references to a resource
 						# Find the resource
-						default_res = apk_resources.get_default_resource_value(entry.data)
-						if resolve_resources && default_res != nil
-							# Use the default resource value
-							attr_value = default_res.data
-						else
-							key_value = apk_resources.get_resource_key(entry.data, true)
-							if key_value != nil
-								# Use the key string
-								attr_value = key_value
-							else
-								#No key found, use raw id marked as a resource
-								attr_value = "res:0x#{entry.data.to_s(16)}"
-							end
-						end
+						# default_res = apk_resources.get_default_resource_value(entry.data)
+						# if resolve_resources && default_res != nil
+						# 	# Use the default resource value
+						# 	attr_value = default_res.data
+						# else
+						# 	key_value = apk_resources.get_resource_key(entry.data, true)
+						# 	if key_value != nil
+						# 		# Use the key string
+						# 		attr_value = key_value
+						# 	else
+						# 		#No key found, use raw id marked as a resource
+						# 		attr_value = "res:0x#{entry.data.to_s(16)}"
+						# 	end
+						# end
 					else # Value is a constant
 						attr_value = "0x#{entry.data.to_s(16)}"
 					end
