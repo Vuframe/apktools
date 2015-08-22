@@ -1,14 +1,14 @@
 # Copyright (C) 2014 Dave Smith
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining a copy of this
 # software and associated documentation files (the "Software"), to deal in the Software
 # without restriction, including without limitation the rights to use, copy, modify,
 # merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit
 # persons to whom the Software is furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all copies
 # or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
 # PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
@@ -16,7 +16,7 @@
 # OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
-require 'zip/zip'
+require 'zip'
 
 ##
 # Class to parse an APK's resources.arsc data and retrieve resource
@@ -24,13 +24,13 @@ require 'zip/zip'
 class ApkResources
 
 	DEBUG = false # :nodoc:
-	
+
 	##
 	# Structure defining the type and size of each resource chunk
 	#
 	# ChunkHeader = Struct.new(:type, :size, :chunk_size)
 	ChunkHeader = Struct.new(:type, :size, :chunk_size)
-	
+
 	##
 	# Structure that houses a group of strings
 	#
@@ -41,7 +41,7 @@ class ApkResources
 	# * +style_count+ = Number of styled strings in the pool
 	# * +values+ = Array of the string values
 	StringPool = Struct.new(:header, :string_count, :style_count, :values)
-	
+
 	##
 	# Structure defining the data inside of the package chunk
 	#
@@ -53,7 +53,7 @@ class ApkResources
 	# * +type_strings+ = Array of the type string values present (e.g. "drawable")
 	# * +key_strings+ = Array of the key string values present (e.g. "ic_launcher")
 	PackageHeader = Struct.new(:header, :id, :name, :type_strings, :key_strings)
-	
+
 	##
 	# Structure defining the resource contents for a package chunk
 	#
@@ -76,7 +76,7 @@ class ApkResources
 	# * +entries+ = Array of config flags for each type entry
 	# * +types+ = The ResType associated with this spec
 	ResTypeSpec = Struct.new(:header, :id, :entry_count, :entries, :types)
-	
+
 	##
 	# Structure that houses all the resources for a given type
 	#
@@ -88,10 +88,10 @@ class ApkResources
 	# * +entry_count+ = Number of entries in this chunk
 	# * +entries+ = Array of Hashes of [ResTypeConfig, ResTypeEntry] in this chunk
 	ResType = Struct.new(:header, :id, :config, :entry_count, :entries)
-	
+
 	##
 	# Structure that houses the configuration flags for a given resource.
-	# 
+	#
 	# ResTypeConfig = Struct.new(:imsi, :locale, :screen_type, :input, :screen_size, :version, :screen_config, :screen_size_dp)
 	#
 	# * +imsi+ = Flags marking country code and network code
@@ -131,16 +131,16 @@ class ApkResources
 	# Create a new ApkResources instance from the specified +apk_file+
 	#
 	# This opens and parses the contents of the APK's resources.arsc file.
-	
+
 	def initialize(apk_file)
-		data = nil		
+		data = nil
 		# Get resources.arsc from the APK file
-		Zip::ZipFile.foreach(apk_file) do |f|
+		Zip::File.foreach(apk_file) do |f|
 		  if f.name.match(/resources.arsc/)
 			data = f.get_input_stream.read
 		  end
 		end
-		
+
 		# Parse the Table Chunk
 		## Header
 		header_type = read_short(data, HEADER_START)
@@ -148,14 +148,14 @@ class ApkResources
 		header_chunk_size = read_word(data, HEADER_START+4)
 		header_package_count = read_word(data, HEADER_START+8)
 		puts "Resource Package Count = #{header_package_count}" if DEBUG
-		
+
 		# Parse the StringPool Chunk
 		## Header
 		startoffset_pool = HEADER_START + header_size
 		puts "Parse Main StringPool Chunk" if DEBUG
 		@stringpool_main = parse_stringpool(data, startoffset_pool)
 		puts "#{@stringpool_main.values.length} strings found" if DEBUG
-		
+
 		# Parse the Package Chunk
 		## Header
 		startoffset_package = startoffset_pool + @stringpool_main.header.chunk_size
@@ -169,20 +169,20 @@ class ApkResources
 
 			i += 1
 		end
-		
+
 	end #initalize
-	
+
 	##
 	# Return array of all string values in the file
-	
+
 	def get_all_strings
 		return @stringpool_main.values
 	end
-	
+
 	##
 	# Return hash of all the type values in the file
 	# keyed by package id
-	
+
 	def get_all_types
 		types = Hash.new()
 		@packages.each do |key, value|
@@ -191,11 +191,11 @@ class ApkResources
 
 		return types
 	end
-	
+
 	##
 	# Return hash of all the key values in the file
 	# keyed by package id
-	
+
 	def get_all_keys
 		keys = Hash.new()
 		@packages.each do |key, value|
@@ -214,12 +214,12 @@ class ApkResources
 	# If xml_format is true, return value will be @<type>/<key>
 	# If xml_format is false or missing, return value will be R.<type>.<key>
 	# If the resource id does not exist, return value will be nil
-	
+
 	def get_resource_key(res_id, xml_format=false)
 		if res_id.is_a? String
 			res_id = res_id.hex
 		end
-		
+
 		# R.id integers are a concatenation of package_id, type_id, and entry index
 		res_package = (res_id >> 24) & 0xFF
 		res_type = (res_id >> 16) & 0xFF
@@ -230,19 +230,19 @@ class ApkResources
 			# This is not a resource we can parse
 			return nil
 		end
-		
+
 		res_spec = package_element.type_data[res_type-1]
 		if res_spec == nil
 			puts "Could not find ResTypeSpec for #{res_package} #{res_type}" if DEBUG
 			return nil
 		end
 
-		entry = res_spec.types.entries[res_index]		
+		entry = res_spec.types.entries[res_index]
 		if entry == nil
 			# There is no entry in our table for this resource
 			return nil
 		end
-		
+
 		if xml_format
 			return "@#{res_spec.id}/#{entry.values[0].key}"
 		else
@@ -256,12 +256,12 @@ class ApkResources
 	# res_id: ID values of a resources as a FixNum or String representation (i.e. 0x7F060001)
 	#
 	# Returns: The default ResTypeEntry to the given id, or nil if no default exists
-	
+
 	def get_default_resource_value(res_id)
 		if res_id.is_a? String
 			res_id = res_id.hex
 		end
-		
+
 		entries = get_resource_value(res_id)
 		if entries != nil
 			default = ResTypeConfig.new(0, 0, 0, 0, 0, 0, 0, 0)
@@ -280,12 +280,12 @@ class ApkResources
 	#
 	# Returns: Hash of all entries matching this id, keyed by their matching ResTypeConfig
 	# or nil if the resource id cannot be found.
-	
+
 	def get_resource_value(res_id)
 		if res_id.is_a? String
 			res_id = res_id.hex
 		end
-		
+
 		# R.id integers are a concatenation of package_id, type_id, and entry index
 		res_package = (res_id >> 24) & 0xFF
 		res_type = (res_id >> 16) & 0xFF
@@ -296,7 +296,7 @@ class ApkResources
 			# This is not a resource we can parse
 			return nil
 		end
-		
+
 		res_spec = package_element.type_data[res_type-1]
 		if res_spec == nil
 			puts "Could not find ResTypeSpec for #{res_package} #{res_type}" if DEBUG
@@ -308,7 +308,7 @@ class ApkResources
 			puts "Could not find #{res_spec.types.id} ResType chunk" if DEBUG
 			return nil
 		end
-		
+
 		return entries
 	end
 
@@ -327,7 +327,7 @@ class ApkResources
 	TYPE_PLURALS = "plurals" # :nodoc:
 	TYPE_STRING = "string" # :nodoc:
 	TYPE_STYLE = "style" # :nodoc:
-	
+
 	# Data Type Constants
 	TYPE_INT_DEC = 0x10 # :nodoc:
 	TYPE_INT_HEX = 0x11 # :nodoc:
@@ -342,21 +342,21 @@ class ApkResources
 	COMPLEX_UNIT_PT = 0x3 # :nodoc:
 	COMPLEX_UNIT_IN = 0x4 # :nodoc:
 	COMPLEX_UNIT_MM = 0x5 # :nodoc:
-	
+
 	# Data Constants
 	TYPE_BOOL_TRUE = 0xFFFFFFFF # :nodoc:
 	TYPE_BOOL_FALSE = 0x00000000 # :nodoc:
-	
+
 	# Header Constants
 	CHUNKTYPE_TYPESPEC = 0x202 # :nodoc:
 	CHUNKTYPE_TYPE = 0x201 # :nodoc:
 	CHUNKTYPE_PACKAGE = 0x200 # :nodoc:
-	
+
 	#Flag Constants
 	FLAG_UTF8 = 0x100 # :nodoc:
 	FLAG_COMPLEX = 0x0001 # :nodoc:
 	FLAG_PUBLIC = 0x0002 # :nodoc:
-	
+
 	OFFSET_NO_ENTRY = 0xFFFFFFFF # :nodoc:
 	HEADER_START = 0 # :nodoc:
 
@@ -365,13 +365,13 @@ class ApkResources
 	  out = data[offset,4].unpack('V').first rescue 0
 	  return out
 	end
-	
+
 	# Read a 16-bit short from a specific location in the data
 	def read_short(data, offset)
 	  out = data[offset,2].unpack('v').first rescue 0
 	  return out
 	end
-		
+
 	# Read a 8-bit byte from a specific location in the data
 	def read_byte(data, offset)
 	  out = data[offset,1].unpack('C').first rescue 0
@@ -387,18 +387,18 @@ class ApkResources
 		end
 	  return out
 	end
-	
+
 	# Return id as a hex string
 	def res_id_to_s(res_id)
 		return "0x#{res_id.to_s(16)}"
 	end
-	
+
 	# Parse out a StringPool chunk
 	def parse_stringpool(data, offset)
 		pool_header = ChunkHeader.new( read_short(data, offset),
 				read_short(data, offset+2),
 				read_word(data, offset+4) )
-	
+
 		pool_string_count = read_word(data, offset+8)
 		pool_style_count = read_word(data, offset+12)
 		pool_flags = read_word(data, offset+16)
@@ -407,7 +407,7 @@ class ApkResources
 
 		pool_string_offset = read_word(data, offset+20)
 		pool_style_offset = read_word(data, offset+24)
-		
+
 		values = Array.new()
 		i = 0
 		while i < pool_string_count
@@ -419,7 +419,7 @@ class ApkResources
 				if (length & 0x80) != 0
 					length = ((length & 0x7F) << 8) + read_byte(data, offset_addr+1)
 				end
-				
+
 				values << read_string(data, offset_addr + 2, length, "UTF-8")
 			else
 				length = read_short(data, offset_addr)
@@ -431,11 +431,11 @@ class ApkResources
 					# Read the data
 					values << read_string(data, offset_addr + 2, length * 2, "UTF-16")
 				end
-			end	
-		
+			end
+
 			i += 1
 		end
-		
+
 		return StringPool.new(pool_header, pool_string_count, pool_style_count, values)
 	end
 
@@ -444,30 +444,30 @@ class ApkResources
 		header = ChunkHeader.new( read_short(data, offset),
 				read_short(data, offset+2),
 				read_word(data, offset+4) )
-		
+
 		package_id = read_word(data, offset+8)
 		package_name = read_string(data, offset+12, 256, "UTF-8")
 		package_type_strings = read_word(data, offset+268)
 		package_last_type = read_word(data, offset+272)
 		package_key_strings = read_word(data, offset+276)
 		package_last_key = read_word(data, offset+280)
-		
+
 		package_header = PackageHeader.new(header, package_id, package_name, package_type_strings, package_key_strings)
-		
+
 		## typeStrings StringPool
 		startoffset_typestrings = offset + package_type_strings
 		puts "Parse typeStrings StringPool Chunk" if DEBUG
 		stringpool_typestrings = parse_stringpool(data, startoffset_typestrings)
-		
+
 		## keyStrings StringPool
 		startoffset_keystrings = offset + package_key_strings
 		puts "Parse keyStrings StringPool Chunk" if DEBUG
 		stringpool_keystrings = parse_stringpool(data, startoffset_keystrings)
-		
-		## typeSpec/type Chunks		
+
+		## typeSpec/type Chunks
 		type_data = Array.new()
 		current_spec = nil
-		
+
 		current = startoffset_keystrings + stringpool_keystrings.header.chunk_size
 		puts "Parse Type/TypeSpec Chunks" if DEBUG
 		while current < data.length
@@ -479,25 +479,25 @@ class ApkResources
 			if header.type == CHUNKTYPE_TYPESPEC
 				typespec_id = read_byte(data, current+8)
 				typespec_entrycount = read_word(data, current+12)
-				
+
 				## Parse the config flags for each entry
 				typespec_entries = Array.new()
 				i=0
 				while i < typespec_entrycount
 					offset = i * 4 + (current+16)
 					typespec_entries << read_word(data, offset)
-					
+
 					i += 1
 				end
-				
+
 				typespec_name = stringpool_typestrings.values[typespec_id - 1]
 				current_spec = ResTypeSpec.new(header, typespec_name, typespec_entrycount, typespec_entries, nil)
-				
+
 				type_data << current_spec
 				current += header.chunk_size
 			elsif header.type == CHUNKTYPE_TYPE
 				type_id = read_byte(data, current+8)
-				type_entrycount = read_word(data, current+12) 
+				type_entrycount = read_word(data, current+12)
 				type_entryoffset = read_word(data, current+16)
 
 				## The config flags set for this type chunk
@@ -513,7 +513,7 @@ class ApkResources
 						read_word(data, current+52) )
 
 				## The remainder of the chunk is a list of the entry values for that type/configuration
-				type_name = stringpool_typestrings.values[type_id - 1]				
+				type_name = stringpool_typestrings.values[type_id - 1]
 				if current_spec.types == nil
 					current_spec.types = ResType.new(header, type_name, type_config, type_entrycount, Array.new())
 				end
@@ -532,12 +532,12 @@ class ApkResources
 					if start_offset != OFFSET_NO_ENTRY
 						## Set the index_offset to the start of the current entry
 						index_offset = current + type_entryoffset + start_offset
-	
+
 						entry_flags = read_short(data, index_offset+2)
 						entry_key = read_word(data, index_offset+4)
 						entry_data_type = read_byte(data, index_offset+11)
 						entry_data = read_word(data, index_offset+12)
-						
+
 						# Find the key in our strings index
 						key_name = stringpool_keystrings.values[entry_key]
 						# Parse the value into a string
@@ -561,7 +561,7 @@ class ApkResources
 					end
 					i += 1
 				end
-				
+
 				current += header.chunk_size
 			elsif header.type == CHUNKTYPE_PACKAGE
 				## This is the next package chunk, move along
@@ -582,7 +582,7 @@ class ApkResources
 		result = @stringpool_main.values[entry_data]
 		return result
 	end
-	
+
 	# Obtain boolean value for resource id
 	def get_resource_bool(entry_datatype, entry_data)
 		if entry_data == TYPE_BOOL_TRUE
@@ -591,9 +591,9 @@ class ApkResources
 			return "false"
 		else
 			return "undefined"
-		end	
+		end
 	end
-	
+
 	# Obtain integer value for resource id
 	def get_resource_integer(entry_datatype, entry_data)
 		if entry_datatype == TYPE_INT_HEX
@@ -618,7 +618,7 @@ class ApkResources
 			return "0x#{entry_data.to_s(16)}"
 		end
 	end
-	
+
 	# Obtain dimension value for resource id
 	def get_resource_dimension(entry_datatype, entry_data)
 		unit_type = (entry_data & 0xFF)
@@ -638,7 +638,7 @@ class ApkResources
 		else
 			unit_name = ""
 		end
-		
+
 		return ((entry_data >> 8) & 0xFFFFFF).to_s + unit_name
-	end	
+	end
 end
